@@ -1,4 +1,5 @@
 from flask import Flask, request, jsonify
+import requests
 from DrissionPage import Chromium, ChromiumOptions
 import time
 import os
