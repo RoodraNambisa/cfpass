@@ -117,7 +117,24 @@ def fetch_cf_clearance():
 
 @app.route('/', methods=['GET'])
 def test():
-    return jsonify({"message": "cfpass is running."}), 200
+    response = {"message": "cfpass is running."}
+    
+    # 从环境变量中获取是否返回公共IP的配置
+    show_ip = os.getenv('SHOW_IP', 'false').lower() == 'true'
+    
+    if show_ip:
+        try:
+            # 发送请求到 api.ipify.org 获取公共IP
+            ip_response = requests.get('https://api.ipify.org?format=json', timeout=5)
+            if ip_response.status_code == 200:
+                public_ip = ip_response.json().get('ip')
+                response["public_ip"] = public_ip
+            else:
+                response["public_ip"] = f"无法获取IP，状态码: {ip_response.status_code}"
+        except Exception as e:
+            response["public_ip"] = f"无法获取IP: {e}"
+    
+    return jsonify(response), 200
 
 
 if __name__ == '__main__':
