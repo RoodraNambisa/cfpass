@@ -29,8 +29,8 @@ def initialize_browser(proxy, user_agent):
                                      'Chrome/129.0.0.0 Safari/537.36 Edg/129.0.0.0')
 
     co.headless(True)
-    co = co.set_argument('--no-sandbox')
-    co.set_argument('--window-size', '800,600')
+    co.set_argument('--no-sandbox')
+    co.set_argument('--window-size=800,600')
     co.incognito(on_off=True)
 
     browser = Chromium(addr_or_opts=co)
@@ -52,18 +52,25 @@ def get_cf_clearance(tab, url, max_retries=3):
             sr_ele = div_elements[1].shadow_root
             iframe = sr_ele.get_frame(1)
             body = iframe.ele('tag:body').shadow_root
-            checkbox = body.ele('@type:checkbox')
-            checkbox.click()
-            tab.wait(1)  # 点击后等待
 
-            # 等待cf_clearance
-            for wait_attempt in range(1, 4):
+            try:
+                # 尝试获取复选框并点击
+                checkbox = body.ele('@type:checkbox')
+                checkbox.click()
+                tab.wait(1)  # 点击后等待
+            except Exception as e:
+                # 如果复选框不存在，则记录信息并继续等待 cf_clearance
+                print(f"第{attempt}次尝试：未找到复选框，继续等待 'cf_clearance'")
+
+            # 等待 cf_clearance
+            for wait_attempt in range(1, 11):
                 cookies = tab.cookies().as_dict()
                 if 'cf_clearance' in cookies:
+                    print(f"成功获取 'cf_clearance'：{cookies['cf_clearance']}")
                     return cookies['cf_clearance']
-                time.sleep(3)  # 等待3秒后重试
+                time.sleep(1)  # 等待1秒后重试
 
-            # 如果等待后仍未找到cf_clearance
+            # 如果等待后仍未找到 cf_clearance
             print(f"第{attempt}次尝试：未找到 'cf_clearance'。")
 
         except Exception as e:
@@ -74,7 +81,6 @@ def get_cf_clearance(tab, url, max_retries=3):
 
     # 达到最大重试次数后仍未成功
     return None
-
 
 @app.route('/get_cf_clearance', methods=['POST'])
 def fetch_cf_clearance():
@@ -92,7 +98,7 @@ def fetch_cf_clearance():
 
     if not url:
         return jsonify({"error": "缺少 'url' 参数。"}), 400
-
+    browser = None
     try:
         browser, tab = initialize_browser(proxy=proxy, user_agent=user_agent)
         cf_clearance = get_cf_clearance(tab, url)
@@ -114,15 +120,17 @@ def fetch_cf_clearance():
         return jsonify({"error": f"发生未预期的错误: {e}"}), 500
 
     finally:
-        browser.quit()
+        if browser:
+            browser.quit()
+
 
 @app.route('/', methods=['GET'])
 def test():
     response = {"message": "cfpass is running."}
-    
+
     # 从环境变量中获取是否返回公共IP的配置
     show_ip = os.getenv('SHOW_IP', 'false').lower() == 'true'
-    
+
     if show_ip:
         try:
             # 发送请求到 api.ipify.org 获取公共IP
@@ -134,7 +142,7 @@ def test():
                 response["public_ip"] = f"无法获取IP，状态码: {ip_response.status_code}"
         except Exception as e:
             response["public_ip"] = f"无法获取IP: {e}"
-    
+
     return jsonify(response), 200
 
 
