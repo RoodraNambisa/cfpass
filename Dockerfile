@@ -1,125 +1,64 @@
-# 使用官方Python基础镜像
+FROM python:3.10-slim AS base
 
-FROM python:3.10-slim
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    BROWSER_PATH=/usr/bin/google-chrome \
+    FLASK_APP=app.py \
+    FLASK_RUN_HOST=0.0.0.0 \
+    FLASK_RUN_PORT=5000
 
-
-
-# 设置环境变量，防止Python生成.pyc文件，并确保输出实时刷新
-
-ENV PYTHONDONTWRITEBYTECODE=1
-
-ENV PYTHONUNBUFFERED=1
-
-
-
-# 安装必要的依赖
-
-RUN apt-get update && apt-get install -y \
-
+RUN apt-get update && apt-get install -y --no-install-recommends \
     wget \
-
     gnupg \
-
     unzip \
-
     fonts-liberation \
-
     libappindicator3-1 \
-
     libasound2 \
-
     libatk-bridge2.0-0 \
-
     libatk1.0-0 \
-
     libcups2 \
-
     libdbus-1-3 \
-
     libdrm2 \
-
     libgbm1 \
-
     libgtk-3-0 \
-
     libnspr4 \
-
     libnss3 \
-
     libx11-xcb1 \
-
     libxcomposite1 \
-
     libxdamage1 \
-
     libxrandr2 \
-
     xdg-utils \
+    ca-certificates \
+    && rm -rf /var/lib/apt/lists/*
 
-    --no-install-recommends && \
+RUN wget -q "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" -O chrome.deb \
+    && apt-get update \
+    && apt-get install -y ./chrome.deb --no-install-recommends \
+    && rm chrome.deb \
+    && rm -rf /var/lib/apt/lists/*
 
-    rm -rf /var/lib/apt/lists/*
-
-
-
-# 下载并安装Google Chrome
-
-RUN wget -q "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" -O chrome.deb && \
-
-    apt-get update && apt-get install -y ./chrome.deb --no-install-recommends && \
-
-    rm chrome.deb && \
-
-    rm -rf /var/lib/apt/lists/*
-
-
-
-# 设置Chromium浏览器路径为环境变量
-
-ENV BROWSER_PATH=/usr/bin/google-chrome
-
-
-
-# 创建工作目录
+FROM base AS builder
 
 WORKDIR /app
 
-
-
-# 复制需求文件并安装Python依赖
-
 COPY requirements.txt .
 
+RUN pip install --upgrade pip \
+    && pip install --no-cache-dir -r requirements.txt
+
+FROM base AS production
 
 
-RUN pip install --upgrade pip && \
+WORKDIR /app
 
-    pip install --no-cache-dir -r requirements.txt
-
-
-
-# 复制应用代码
+COPY --from=builder /usr/local/lib/python3.10/site-packages /usr/local/lib/python3.10/site-packages
+COPY --from=builder /usr/local/bin /usr/local/bin
 
 COPY . .
 
 
-
 # 暴露端口
-
 EXPOSE 5000
 
-
-
-# 设置Flask运行环境变量
-
-ENV FLASK_APP=app.py
-
-ENV FLASK_RUN_HOST=0.0.0.0
-
-ENV FLASK_RUN_PORT=5000
-
-
-
-# 启动Flask应用
-
-CMD ["python", "cf_pass_api.py"]
+# 使用 Gunicorn 作为生产环境的 WSGI 服务器
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "cf_pass_api:app", "--workers", "4", "--threads", "4"]
