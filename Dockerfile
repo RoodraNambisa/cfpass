@@ -61,4 +61,4 @@ COPY . .
 EXPOSE 5000
 
 # 使用 Gunicorn 作为生产环境的 WSGI 服务器
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "cf_pass_api:app", "--workers", "4", "--threads", "4"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "cf_pass_api:app"]
