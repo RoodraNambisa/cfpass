@@ -31,7 +31,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     ca-certificates \
     && rm -rf /var/lib/apt/lists/*
 
-RUN wget -q "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" -O chrome.deb \
+#RUN wget -q "https://dl.google.com/linux/direct/google-chrome-stable_current_amd64.deb" -O chrome.deb \
+RUN wget -q "https://repo.debiancn.org/pool/main/g/google-chrome-stable/google-chrome-stable_124.0.6367.60-1_amd64.deb" -O chrome.deb \
     && apt-get update \
     && apt-get install -y ./chrome.deb --no-install-recommends \
     && rm chrome.deb \
@@ -61,4 +62,4 @@ COPY . .
 EXPOSE 5000
 
 # 使用 Gunicorn 作为生产环境的 WSGI 服务器
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "cf_pass_api:app"]
+CMD ["gunicorn", "--bind", "0.0.0.0:5000", "cf_pass_api:app","--workers", "2", "--threads", "1", "--timeout", "60"]
